@@ -5,6 +5,8 @@
  */
 
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 #include <stdint.h>
 #include <assert.h>
 
@@ -31,8 +33,57 @@ typedef struct {
 */
 struct {
   uint32_t count;   /* number of different chunks */
+  uint32_t total;   /* total number of allocated entries */
   chunk_t *chunks;  /* chunk array */
 } table;
+
+/*
+  Add a chunk to the global table,
+  or increase the count if it already exists
+*/
+void
+add_chunk (uint8_t *chunk, uint16_t bits)
+{
+  uint32_t i, j, m;
+  int r;
+  
+  i = 0;
+  j = table.count;
+
+  while(i < j) {
+    m = i + ((j - i) / 2);
+
+    r = memcmp(table.chunks[m].p, chunk, bits/8 + (bits % 8 > 0 ? 1 : 0));
+    
+    if(r == 0) {
+      table.chunks[m].count++;
+      return;
+    }
+
+    else if (r > 0) j = m - 1;
+    else            i = m + i;
+
+  }
+
+  if(r < 0) m++;
+
+  if(table.total == table.count) {
+    table.chunks = realloc(table.chunks,
+			   table.total * 2 * sizeof(*table.chunks));
+    table.total *= 2;
+  }
+
+  memmove(table.chunks + (m + 1) * sizeof(*table.chunks),
+	  table.chunks + m * sizeof(*table.chunks),
+	  (table.count - m) * sizeof(*table.chunks));
+  
+  table.chunks[m].count = 1;
+  table.chunks[m].bits  = bits;
+  table.chunks[m].p     = chunk;
+
+  table.count++;
+
+}
 
 /*
   Read 8 bits from a file (at a given bit offset).
@@ -197,9 +248,11 @@ main (int argc, char *argv[])
     return 1;
   }
 
-  opts.bits = atoi(argv[1]);
-  opts.in_fname = argv[2];
+  opts.bits      = atoi(argv[1]);
+  opts.in_fname  = argv[2];
   opts.out_fname = argv[3];
+
+  memset(&table, 0, sizeof(table));
 
   return 0;
 }
