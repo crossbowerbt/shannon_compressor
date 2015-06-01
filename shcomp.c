@@ -45,44 +45,86 @@ void
 add_chunk (uint8_t *chunk, uint16_t bits)
 {
   uint32_t i, j, m;
-  int r;
-  
+  int r = 0;
+
+  assert(chunk);
+  assert(bits > 0);
+
   i = 0;
-  j = table.count;
+  j = table.count - 1;
+  m = 0;
 
-  while(i < j) {
-    m = i + ((j - i) / 2);
+  if(table.count) {
 
-    r = memcmp(table.chunks[m].p, chunk, bits/8 + (bits % 8 > 0 ? 1 : 0));
-    
-    if(r == 0) {
-      table.chunks[m].count++;
-      return;
+    while(i < j) {
+
+      m = i + ((j - i) / 2);
+
+      r = memcmp(table.chunks[m].p, chunk, bits/8 + (bits % 8 > 0 ? 1 : 0));
+
+      if(r == 0) {
+	table.chunks[m].count++;
+	return;
+      }
+      
+      else if (r > 0) j = m;
+      else            i = m;
+
     }
 
-    else if (r > 0) j = m - 1;
-    else            i = m + i;
+    if(i == j) {
+
+      m = i;
+
+      r = memcmp(table.chunks[m].p, chunk, bits/8 + (bits % 8 > 0 ? 1 : 0));
+
+      if(r == 0) {
+	table.chunks[m].count++;
+	return;
+      }      
+
+    }
 
   }
 
-  if(r < 0) m++;
-
   if(table.total == table.count) {
+    if(table.total == 0) table.total = 1;
+
     table.chunks = realloc(table.chunks,
 			   table.total * 2 * sizeof(*table.chunks));
+
+    assert(table.chunks != NULL);
+
     table.total *= 2;
   }
 
   memmove(table.chunks + (m + 1) * sizeof(*table.chunks),
 	  table.chunks + m * sizeof(*table.chunks),
 	  (table.count - m) * sizeof(*table.chunks));
-  
+ 
   table.chunks[m].count = 1;
   table.chunks[m].bits  = bits;
-  table.chunks[m].p     = chunk;
+
+  table.chunks[m].p = calloc(1, bits/8 + 1);
+  memcpy(table.chunks[m].p, chunk, bits/8 + 1);
 
   table.count++;
+}
 
+/*
+  Print, in a human readable form, the global chunk table.
+*/
+void
+print_chunk_table ()
+{
+  uint32_t i;
+
+  printf("total chunks: %d\n", table.count);
+
+  for(i = 0; i < table.count; i++) {
+    /* TODO: print bits value */
+    printf("%u\t%u\n", i, table.chunks[i].count);
+  }
 }
 
 /*
@@ -242,6 +284,10 @@ usage (char *progname)
 int
 main (int argc, char *argv[])
 {
+  FILE *fin, *fout;
+
+  uint8_t *buffer;
+  uint16_t r;
   
   if(argc < 4) {
     usage(argv[0]);
@@ -253,6 +299,32 @@ main (int argc, char *argv[])
   opts.out_fname = argv[3];
 
   memset(&table, 0, sizeof(table));
+
+  fin = fopen(opts.in_fname, "r");
+  if(fin == NULL) {
+    perror("fopen: ");
+    return 1;
+  }
+
+  buffer = calloc(1, opts.bits/8 + 1);
+
+  do {
+
+    puts(".");
+
+    r = read_chunk(fin, buffer, opts.bits);
+
+    if(r == 0) break;
+
+    add_chunk(buffer, r);
+
+    print_chunk_table();
+
+  } while(r == opts.bits);
+
+  print_chunk_table();
+
+  fclose(fin);
 
   return 0;
 }

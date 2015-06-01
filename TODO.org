@@ -1,4 +1,5 @@
 * TASKS
++ fix add_chunk function
 + check write_8_bits workings
 + check functions that manipulate global chunk table
 + write a function to analyze a file and report the chunk statistics
