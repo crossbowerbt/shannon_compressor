@@ -1,4 +1,4 @@
-* TODO
+* TODO TASKS
 + check write_8_bits workings
 + write a function to analyze a file and report the chunk statistics
 + write the argument parsing in main()
