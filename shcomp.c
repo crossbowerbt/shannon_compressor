@@ -29,7 +29,10 @@ typedef struct {
 /*
   Global chunk table
 */
-chunk_t *table;
+struct {
+  uint32_t count;   /* number of different chunks */
+  chunk_t *chunks;  /* chunk array */
+} table;
 
 /*
   Read 8 bits from a file (at a given bit offset).
@@ -179,8 +182,24 @@ write_chunk (FILE *fp, uint8_t *src, uint16_t bits)
   return bits_written;
 }
 
+void
+usage (char *progname)
+{
+  printf("Usage: %s bits in_file out_file\n", progname);
+}
+
 int
 main (int argc, char *argv[])
 {
+  
+  if(argc < 4) {
+    usage(argv[0]);
+    return 1;
+  }
+
+  opts.bits = atoi(argv[1]);
+  opts.in_fname = argv[2];
+  opts.out_fname = argv[3];
+
   return 0;
 }
